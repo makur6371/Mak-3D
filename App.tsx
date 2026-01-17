@@ -22,14 +22,14 @@ const Modal: React.FC<{
   if (!isOpen) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-      <div className={`bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full ${maxWidth} flex flex-col`}>
-        <div className="flex justify-between items-center p-4 border-b border-slate-800">
+      <div className={`bg-slate-900 border border-slate-700 rounded-xl shadow-2xl w-full ${maxWidth} flex flex-col max-h-[90vh]`}>
+        <div className="flex justify-between items-center p-4 border-b border-slate-800 flex-shrink-0">
           <h2 className="text-lg font-bold text-white">{title}</h2>
           <button onClick={onClose} className="text-slate-400 hover:text-white transition-colors">
             <X size={20} />
           </button>
         </div>
-        <div className="p-4 overflow-y-auto max-h-[80vh]">
+        <div className="p-4 overflow-y-auto">
           {children}
         </div>
       </div>
@@ -77,7 +77,6 @@ const App: React.FC = () => {
   };
 
   const handleObjectsGenerated = (newObjects: SceneObject[]) => {
-    // Logic update: Auto-save current scene to history, then CLEAR and REPLACE with new objects
     if (objects.length > 0) {
       const timestamp = Date.now();
       const backupName = `生成前备份 (${new Date().toLocaleTimeString()})`;
@@ -89,10 +88,9 @@ const App: React.FC = () => {
         objects: [...objects]
       }]);
 
-      // Notify user system saved the previous state
       setMessages(prev => [...prev, {
         id: Date.now().toString(),
-        role: 'user', // Display as user-side system notice or just use role logic
+        role: 'user',
         text: `[系统] 上一个场景已自动备份至历史记录: "${backupName}"`,
         timestamp: new Date(),
         isSystem: true
@@ -142,7 +140,7 @@ const App: React.FC = () => {
       id: Date.now().toString(),
       name: '新立方体',
       type: ObjectType.CUBE,
-      position: [0, 0.5, 0], // Place slightly above grid
+      position: [0, 0.5, 0],
       rotation: [0, 0, 0],
       scale: [1, 1, 1],
       color: '#cbd5e1',
@@ -196,7 +194,6 @@ const App: React.FC = () => {
   };
 
   const handleExport = () => {
-    // 3-way choice for export
     const choice = prompt(
       "请选择导出格式 (输入数字):\n1. 项目文件 (.json)\n2. CAD 模型 (.sldprt)\n3. 2D 图纸 (.png)", 
       "1"
@@ -233,7 +230,8 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-screen w-full bg-slate-950 text-white overflow-hidden font-sans">
+    // Use dvh for mobile address bar compatibility, fallback to screen
+    <div className="flex flex-col w-full bg-slate-950 text-white overflow-hidden font-sans h-screen supports-[height:100dvh]:h-[100dvh]">
       <TopBar 
         onImport={handleImport} 
         onExport={handleExport} 
@@ -244,9 +242,15 @@ const App: React.FC = () => {
         onOpenHelp={() => setIsHelpOpen(true)}
       />
       
-      <div className="flex flex-1 overflow-hidden">
-        {/* Left: 3D Viewport */}
-        <div className="flex-1 relative border-r border-slate-700">
+      {/* 
+         LAYOUT STRATEGY:
+         Mobile (Default): Flex Column. 3D view on top (40%), Tools on bottom (60%).
+         Desktop (lg): Flex Row. 3D view (Flex-1) on left, Tools (Fixed Width) on right.
+      */}
+      <div className="flex flex-1 overflow-hidden flex-col lg:flex-row relative">
+        
+        {/* LEFT / TOP: 3D VIEWPORT */}
+        <div className="relative border-b lg:border-b-0 lg:border-r border-slate-700 w-full h-[40%] lg:h-auto lg:flex-1 order-1">
           <Viewport3D 
             objects={objects} 
             selectedId={selectedId}
@@ -259,19 +263,22 @@ const App: React.FC = () => {
           />
         </div>
 
-        {/* Right: Sidebar */}
-        <div className="w-80 md:w-96 flex flex-col bg-slate-900 flex-shrink-0 shadow-xl z-10">
+        {/* RIGHT / BOTTOM: SIDEBAR TOOLS */}
+        <div className="flex flex-col w-full lg:w-96 bg-slate-900 shadow-xl z-10 h-[60%] lg:h-auto order-2 border-t lg:border-t-0 border-slate-700">
           
-          {/* Top Right: 2D Preview */}
-          <div className="h-48 border-b border-slate-700 bg-slate-800 relative">
+          {/* 2D Preview Panel */}
+          {/* Mobile: Smaller fixed height (8rem/128px) */}
+          {/* Desktop: Original fixed height (12rem/192px) */}
+          <div className="h-32 lg:h-48 border-b border-slate-700 bg-slate-800 relative flex-shrink-0 transition-all">
             <Preview2D 
               objects={objects} 
               onExpand={() => setIs2DMaximized(true)} 
             />
           </div>
 
-          {/* Middle Right: Layer Panel & History */}
-          <div className="flex-1 overflow-hidden min-h-[150px]">
+          {/* Middle: Layer Panel */}
+          {/* Fills remaining space between Preview and Chat */}
+          <div className="flex-1 overflow-hidden min-h-0">
              <LayerPanel 
                objects={objects} 
                selectedId={selectedId} 
@@ -282,8 +289,10 @@ const App: React.FC = () => {
              />
           </div>
 
-          {/* Bottom Right: AI Generator */}
-          <div className="h-80 relative z-20">
+          {/* Bottom: AI Chat Panel */}
+          {/* Mobile: Slightly smaller (15rem/240px) */}
+          {/* Desktop: Original fixed height (20rem/320px) */}
+          <div className="h-60 lg:h-80 relative z-20 flex-shrink-0 transition-all border-t border-slate-700">
              <ChatPanel 
                messages={messages} 
                setMessages={setMessages} 
@@ -336,13 +345,13 @@ const App: React.FC = () => {
         <div className="space-y-6">
           <section>
             <h3 className="text-sm font-bold text-slate-400 uppercase mb-2 flex items-center">
-              <MousePointer2 size={14} className="mr-2" /> 鼠标操作
+              <MousePointer2 size={14} className="mr-2" /> 鼠标/触控操作
             </h3>
             <ul className="space-y-2 text-sm text-slate-300">
-              <li className="flex justify-between"><span className="text-white">左键点击</span> <span>选择物体</span></li>
-              <li className="flex justify-between"><span className="text-white">左键拖拽</span> <span>旋转视角 (空白处) / 移动物体 (选中时)</span></li>
-              <li className="flex justify-between"><span className="text-white">右键拖拽</span> <span>平移视角</span></li>
-              <li className="flex justify-between"><span className="text-white">滚轮</span> <span>缩放视角</span></li>
+              <li className="flex justify-between"><span className="text-white">点击</span> <span>选择物体</span></li>
+              <li className="flex justify-between"><span className="text-white">单指拖拽</span> <span>旋转视角</span></li>
+              <li className="flex justify-between"><span className="text-white">双指/右键拖拽</span> <span>平移视角</span></li>
+              <li className="flex justify-between"><span className="text-white">双指缩放/滚轮</span> <span>缩放视角</span></li>
             </ul>
           </section>
           
@@ -353,9 +362,9 @@ const App: React.FC = () => {
             <div className="text-sm text-slate-300 space-y-2">
               <p>选中物体后，左上角会出现变换工具：</p>
               <div className="grid grid-cols-3 gap-2 text-center">
-                <div className="bg-slate-800 p-2 rounded">移动 (Move)</div>
-                <div className="bg-slate-800 p-2 rounded">旋转 (Rotate)</div>
-                <div className="bg-slate-800 p-2 rounded">缩放 (Scale)</div>
+                <div className="bg-slate-800 p-2 rounded">移动</div>
+                <div className="bg-slate-800 p-2 rounded">旋转</div>
+                <div className="bg-slate-800 p-2 rounded">缩放</div>
               </div>
             </div>
           </section>
@@ -364,8 +373,8 @@ const App: React.FC = () => {
 
       {/* Fullscreen 2D Preview Overlay */}
       {is2DMaximized && (
-        <div className="fixed inset-0 z-50 bg-slate-900 flex flex-col">
-          <div className="h-14 border-b border-slate-700 flex items-center justify-between px-4 bg-slate-900">
+        <div className="fixed inset-0 z-50 bg-slate-900 flex flex-col h-[100dvh]">
+          <div className="h-14 border-b border-slate-700 flex items-center justify-between px-4 bg-slate-900 flex-shrink-0">
              <h2 className="text-xl font-bold text-white flex items-center">
                <span className="text-green-400 mr-2">●</span> 2D 蓝图全屏预览
              </h2>
@@ -376,7 +385,7 @@ const App: React.FC = () => {
                关闭预览
              </button>
           </div>
-          <div className="flex-1 p-8">
+          <div className="flex-1 p-4 md:p-8 overflow-hidden">
             <Preview2D 
               objects={objects} 
               onExpand={() => {}} 
